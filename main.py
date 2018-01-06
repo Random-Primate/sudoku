@@ -1,3 +1,5 @@
+from IPython import embed
+
 rows = 'ABCDEFGHI'
 cols = '123456789'
 out = []
@@ -14,6 +16,15 @@ unitlist = row_units + column_units + square_units
 units = dict((s, [u for u in unitlist if s in u]) for s in boxes)
 peers = dict((s, set(sum(units[s],[]))-set([s])) for s in boxes)
 
+def render_margin():
+    """
+    Prints a margin with a buffer space prior and post to it.
+    Used for styling purposes.
+    """
+    print('         ')
+    print('---------------------------------------------------------------')
+    print('         ')
+
 def display(values):
     """
     Display the values as a 2-D grid.
@@ -29,6 +40,11 @@ def display(values):
     return
 
 def grid_values(grid):
+    """
+    Sets the values for the Sudoku grid based on the given grid input.
+    If there is no value for a box it sets it to all possible values it
+    can have.
+    """
     ou = {}
     input = grid
     for r in row_units:
@@ -42,8 +58,31 @@ def grid_values(grid):
     return ou
 
 
+def singles(values):
+    """
+    Retrieves all boxes with a single value.
+    """
+    singles = {}
+    for v in values:
+        box = values[v]
+        if len(box) == 1:
+            singles[v] = box
+    return singles
+
+def multi_values(values):
+    """
+    Retrieves a dicitonary of boxes that have more than a single value
+    """
+    multis = {}
+    for v in values:
+        box = values[v]
+        if len(box) > 1:
+            multis[v] = int(box)
+    return multis
+
 def eliminate(values):
-    """Eliminate values from peers of each box with a single value.
+    """
+    Eliminate values from peers of each box with a single value.
 
     Go through all the boxes, and whenever there is a box with a single value,
     eliminate this value from the set of values of all its peers.
@@ -53,10 +92,96 @@ def eliminate(values):
     Returns:
         Resulting Sudoku in dictionary form after eliminating values.
     """
-    solved_values = [box for box in values.keys() if len(values[box]) == 1]
-    for box in solved_values:
-        digit = values[box]
-        for peer in peers[box]:
-            values[peer] = values[peer].replace(digit,'')
+    single = singles(values)
+    for v in single:
+        val = single[v]
+        for p in peers[v]:
+            values[p] = values[p].replace(val, '')
     return values
 
+
+def only_choice(values):
+    """
+    Finalize all values that are the only choice for a unit.
+
+    Go through all the units, and whenever there is a unit with a value
+    that only fits in one box, assign the value to this box.
+
+    Input: Sudoku in dictionary form.
+    Output: Resulting Sudoku in dictionary form after filling in only choices.
+    """
+    for unit in unitlist:
+        for d in '123456789':
+            dplaces = [box for box in unit if d in values[box]]
+            if len(dplaces) == 1:
+                values[dplaces[0]] = d
+    return values
+
+def reduce_puzzle(values):
+    stalled = False
+    while not stalled:
+        # Check how many boxes have a determined value
+        solved_values_before = len([box for box in values.keys() if len(values[box]) == 1])
+
+        # Your code here: Use the Eliminate Strategy
+        eliminate(values)
+
+        # Your code here: Use the Only Choice Strategy
+        only_choice(values)
+
+        # Check how many boxes have a determined value, to compare
+        solved_values_after = len([box for box in values.keys() if len(values[box]) == 1])
+        # If no new values were added, stop the loop.
+        stalled = solved_values_before == solved_values_after
+        # Sanity check, return False if there is a box with zero available values:
+        if len([box for box in values.keys() if len(values[box]) == 0]):
+            return False
+    return values
+
+
+# Depth first search for the hardest Sudokus
+def search(values):
+    "Using depth-first search and propagation, create a search tree and solve the sudoku."
+    # First, reduce the puzzle using the previous function
+    values = reduce_puzzle(values)
+    if values is False:
+        return False ## Failed earlier
+    if all(len(values[s]) == 1 for s in boxes):
+        return values ## Solved!
+    # Choose one of the unfilled squares with the fewest possibilities
+    n,s = min((len(values[s]), s) for s in boxes if len(values[s]) > 1)
+    # Now use recurrence to solve each one of the resulting sudokus, and
+    for value in values[s]:
+        new_sudoku = values.copy()
+        new_sudoku[s] = value
+        attempt = search(new_sudoku)
+        if attempt:
+            return attempt
+
+"""
+Execution
+"""
+# Easy Sudoku
+# grid = '..3.2.6..9..3.5..1..18.64....81.29..7.......8..67.82....26.95..8..2.3..9..5.1.3..'
+# values = grid_values(grid)
+
+# Hard Sudoku
+grid2 = '4.....8.5.3..........7......2.....6.....8.4......1.......6.3.7.5..2.....1.4......'
+values = grid_values(grid2)
+
+print('\nOriginal')
+render_margin()
+display(values)
+render_margin()
+
+print('Reduced')
+render_margin()
+display(reduce_puzzle(values))
+render_margin()
+
+print('Depth First Search Solution')
+values = search(values)
+
+render_margin()
+display(values)
+render_margin()
