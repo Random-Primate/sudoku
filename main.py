@@ -117,17 +117,59 @@ def only_choice(values):
                 values[dplaces[0]] = d
     return values
 
+def naked_twins(values):
+    """Eliminate values using the naked twins strategy.
+
+    Parameters
+    ----------
+    values(dict)
+        a dictionary of the form {'box_name': '123456789', ...}
+
+    Returns
+    -------
+    dict
+        The values dictionary with the naked twins eliminated from peers
+
+    """
+
+    single = singles(values)
+    multis = dict(set(values.items()) - set(single.items()))
+
+    for m in multis: # dictionary of non singles boxes
+        # if this box contains two values
+        if len(values[m]) == 2:
+            for unit in units[m]: # one list from units
+                # remove the unit in question
+                uniq_unit = list(unit)
+                uniq_unit.remove(m)
+                # for each element in the unit
+                for u in uniq_unit:
+                    # if another box has equal values
+                    if values[u] == values[m]:
+                        uniq_unit.remove(u)
+                        # for each values in our reference box
+                        for d in values[m]:
+                            for other in uniq_unit:
+                                if values[other].find(d) >= 0:
+                                    values[other] = values[other].replace(d, '')
+
+    # to extend this we can compare if three values and three equal boxes in unit, etc
+    return values
+
 def reduce_puzzle(values):
     stalled = False
     while not stalled:
         # Check how many boxes have a determined value
         solved_values_before = len([box for box in values.keys() if len(values[box]) == 1])
 
-        # Your code here: Use the Eliminate Strategy
+        # Use the Eliminate Strategy
         eliminate(values)
 
-        # Your code here: Use the Only Choice Strategy
+        # Use the Only Choice Strategy
         only_choice(values)
+
+        # Use the Naked Twins Strategy
+        naked_twins(values)
 
         # Check how many boxes have a determined value, to compare
         solved_values_after = len([box for box in values.keys() if len(values[box]) == 1])
